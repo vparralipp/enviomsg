@@ -16,6 +16,7 @@ Página simples para enviar uma mensagem de WhatsApp para uma lista de contatos,
 1. **Conectar**: cole o token do seu canal (no painel do Whapi) e clique em **Testar conexão**.
 2. **Contatos**: importe uma planilha Excel/CSV com uma coluna **telefone** (e, se quiser, **nome**), ou cole a lista, um contato por linha.
 3. **Mensagem**: escreva o texto. Use o botão **Inserir nome do contato** para personalizar.
+   Se quiser, anexe uma **imagem (JPG, PNG, WEBP) ou um PDF** de até 10 MB. O texto vira a legenda do anexo.
 4. **Enviar**: clique em **Enviar teste para mim** para conferir, depois em **Começar envio**. Deixe a página aberta até terminar.
 
 Ao final, clique em **Baixar relatório** para ter a planilha com o resultado de cada envio.

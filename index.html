@@ -59,6 +59,12 @@
   .stats b{color:var(--ink)}
   details summary{cursor:pointer;color:var(--muted);margin-top:12px}
   .check{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:10px}
+  .anexo{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px}
+  .anexo #anexoNome{flex:1;word-break:break-all;font-size:.95rem}
+  .anexo img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+  .pdfIcon{width:56px;height:56px;border-radius:8px;background:var(--err-soft);color:var(--err);display:grid;place-items:center;font-weight:700}
+  .preview img{max-width:220px;max-height:220px;border-radius:8px;display:block;margin-bottom:8px}
+  .preview .doc{display:inline-block;padding:8px 10px;border-radius:8px;background:var(--card);margin-bottom:8px;font-weight:600}
   footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
 </style>
 </head>
@@ -95,11 +101,20 @@
 
   <!-- PASSO 3 -->
   <section class="card">
-    <div class="step"><span class="num" id="n3">3</span><h2>Escrever a mensagem</h2></div>
+    <div class="step"><span class="num" id="n3">3</span><h2>Escrever a mensagem e anexar</h2></div>
     <label for="mensagem">Mensagem</label>
     <textarea id="mensagem" placeholder="Olá, {nome}! Tudo bem?&#10;&#10;Responda SAIR se não quiser mais receber mensagens."></textarea>
     <div class="row" style="margin-top:8px"><button id="btnNome" class="secondary" type="button">Inserir nome do contato</button></div>
     <p class="hint">Onde estiver <b>{nome}</b>, cada pessoa verá o próprio nome. Mensagens personalizadas reduzem o risco de bloqueio.</p>
+    <label for="anexo">Anexo (opcional): imagem ou PDF</label>
+    <input type="file" id="anexo" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf">
+    <p class="hint">Se anexar, a mensagem acima vira a legenda do arquivo. Tamanho máximo: 10 MB.</p>
+    <div id="anexoInfo" class="hidden anexo">
+      <img id="anexoThumb" alt="" class="hidden">
+      <span id="anexoIcone" class="pdfIcon hidden">PDF</span>
+      <span id="anexoNome"></span>
+      <button id="btnRemoverAnexo" class="secondary" type="button">Remover</button>
+    </div>
     <label>Prévia</label>
     <div class="preview" id="previa">Escreva a mensagem acima para ver a prévia.</div>
   </section>
@@ -278,7 +293,53 @@ $("btnNome").onclick = () => {
 function atualizarPrevia(){
   const m = $("mensagem").value;
   const ex = contatos.find(c => c.situacao === "ok");
-  $("previa").textContent = m ? personalizar(m, ex?.nome || "Maria") : "Escreva a mensagem acima para ver a prévia.";
+  const p = $("previa"); p.innerHTML = "";
+  if (anexo){
+    if (anexo.tipo === "imagem"){ const i = document.createElement("img"); i.src = anexo.dataUrl; p.appendChild(i); }
+    else { const d = document.createElement("span"); d.className = "doc"; d.textContent = "📄 " + anexo.nome; p.appendChild(d); }
+  }
+  const t = document.createElement("div");
+  t.textContent = m ? personalizar(m, ex?.nome || "Maria") : (anexo ? "" : "Escreva a mensagem acima para ver a prévia.");
+  p.appendChild(t);
+}
+
+/* ---------- anexo ---------- */
+let anexo = null; // {tipo:"imagem"|"pdf", nome, mime, dataUrl}
+const MAX_MB = 10;
+$("anexo").onchange = (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  const ehPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+  const ehImg = /^image\/(jpeg|png|webp)$/.test(f.type);
+  if (!ehPdf && !ehImg){ alert("Formato não aceito. Use imagem JPG, PNG ou WEBP, ou um arquivo PDF."); ev.target.value = ""; return; }
+  if (f.size > MAX_MB * 1024 * 1024){ alert(`Arquivo muito grande (${(f.size/1048576).toFixed(1)} MB). O máximo é ${MAX_MB} MB.`); ev.target.value = ""; return; }
+  const r = new FileReader();
+  r.onload = () => {
+    const mime = ehPdf ? "application/pdf" : f.type;
+    const base64 = String(r.result).split(",")[1];
+    // formato aceito pelo Whapi: data:<mime>;name=<arquivo>;base64,<dados>
+    anexo = { tipo: ehPdf ? "pdf" : "imagem", nome: f.name, mime,
+              dataUrl: String(r.result), media: `data:${mime};name=${encodeURIComponent(f.name)};base64,${base64}` };
+    $("anexoNome").textContent = `${f.name} (${(f.size/1048576).toFixed(1)} MB)`;
+    $("anexoThumb").classList.toggle("hidden", ehPdf); if (!ehPdf) $("anexoThumb").src = anexo.dataUrl;
+    $("anexoIcone").classList.toggle("hidden", !ehPdf);
+    $("anexoInfo").classList.remove("hidden");
+    atualizarPrevia(); atualizarPassos();
+  };
+  r.onerror = () => alert("Não foi possível ler o arquivo.");
+  r.readAsDataURL(f);
+};
+$("btnRemoverAnexo").onclick = () => {
+  anexo = null; $("anexo").value = ""; $("anexoInfo").classList.add("hidden");
+  atualizarPrevia(); atualizarPassos();
+};
+
+/* envia texto, imagem ou PDF conforme o que estiver preenchido */
+function enviarMensagem(numero, nome){
+  const texto = personalizar($("mensagem").value, nome).trim();
+  if (!anexo) return chamar("/messages/text", "POST", { to: numero, body: texto });
+  if (anexo.tipo === "imagem")
+    return chamar("/messages/image", "POST", { to: numero, media: anexo.media, ...(texto && { caption: texto }) });
+  return chamar("/messages/document", "POST", { to: numero, media: anexo.media, filename: anexo.nome, ...(texto && { caption: texto }) });
 }
 
 /* ---------- passo 4 ---------- */
@@ -291,17 +352,17 @@ $("btnLimparHist").onclick = () => {
 function validar(){
   if (!token()) return "Preencha o token no passo 1.";
   if (!contatos.some(c => c.situacao === "ok")) return "Adicione pelo menos um contato válido no passo 2.";
-  if (!$("mensagem").value.trim()) return "Escreva a mensagem no passo 3.";
+  if (!$("mensagem").value.trim() && !anexo) return "Escreva a mensagem ou anexe um arquivo no passo 3.";
   return null;
 }
 
 $("btnTesteUm").onclick = async () => {
   if (!token()) return alert("Preencha o token no passo 1.");
-  if (!$("mensagem").value.trim()) return alert("Escreva a mensagem no passo 3.");
+  if (!$("mensagem").value.trim() && !anexo) return alert("Escreva a mensagem ou anexe um arquivo no passo 3.");
   const n = normalizar(prompt("Digite o SEU número (com DDD) para receber o teste:") || "");
   if (!n) return alert("Número inválido.");
   try{
-    await chamar("/messages/text", "POST", { to: n, body: personalizar($("mensagem").value, "Teste") });
+    await enviarMensagem(n, "Teste");
     alert("Mensagem de teste enviada! Confira seu WhatsApp.");
   }catch(e){ alert("Não foi possível enviar: " + e.message); }
 };
@@ -339,7 +400,7 @@ $("btnEnviar").onclick = async () => {
     $("sProx").textContent = `Enviando para ${formatar(c.numero)}…`;
     let status = "Enviada", detalhe = "";
     try{
-      await chamar("/messages/text", "POST", { to: c.numero, body: personalizar($("mensagem").value, c.nome) });
+      await enviarMensagem(c.numero, c.nome);
       env++; historico.add(c.numero); store.set("whapi_enviados", [...historico]);
     }catch(e){
       err++; status = "Erro"; detalhe = e.message;
@@ -386,7 +447,7 @@ $("btnBaixar").onclick = () => {
 function atualizarPassos(){
   $("n1").classList.toggle("done", !!token());
   $("n2").classList.toggle("done", contatos.some(c => c.situacao === "ok"));
-  $("n3").classList.toggle("done", !!$("mensagem").value.trim());
+  $("n3").classList.toggle("done", !!$("mensagem").value.trim() || !!anexo);
 }
 atualizarPrevia(); atualizarPassos();
 </script>
