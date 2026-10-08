@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Envio de Mensagens WhatsApp</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f3; --card:#ffffff; --ink:#1d2621; --muted:#5f6b64; --line:#dfe5e0;
+    --brand:#128c4a; --brand-ink:#ffffff; --brand-soft:#e3f4ea;
+    --warn:#a35b00; --warn-soft:#fff3e0; --err:#b3261e; --err-soft:#fdecea;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121714; --card:#1b221e; --ink:#e8eee9; --muted:#9aa8a0; --line:#2c3630;
+      --brand:#2bb56a; --brand-ink:#08130c; --brand-soft:#173323;
+      --warn:#ffb74d; --warn-soft:#33270f; --err:#ff8a80; --err-soft:#3a1d1b;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+  header h1{font-size:1.6rem;margin:0 0 4px}
+  header p{margin:0 0 20px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+  .step{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+  .num{flex:none;width:32px;height:32px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700}
+  .num.done{background:var(--brand-soft);color:var(--brand)}
+  .step h2{font-size:1.15rem;margin:0}
+  label{display:block;font-weight:600;margin:12px 0 6px}
+  .hint{color:var(--muted);font-size:.9rem;margin:4px 0 0}
+  input[type=text],input[type=password],input[type=number],textarea{
+    width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+  textarea{min-height:120px;resize:vertical}
+  input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row > *{flex:1 1 160px}
+  button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:var(--brand);color:var(--brand-ink)}
+  button.secondary{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.danger{background:var(--err);color:#fff}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .big{width:100%;padding:16px;font-size:1.1rem}
+  .msg{padding:10px 12px;border-radius:10px;margin-top:12px;font-size:.95rem}
+  .ok{background:var(--brand-soft);color:var(--brand)}
+  .warn{background:var(--warn-soft);color:var(--warn)}
+  .bad{background:var(--err-soft);color:var(--err)}
+  .hidden{display:none}
+  table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:10px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+  .tablebox{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:600}
+  .tag.ok{background:var(--brand-soft)} .tag.bad{background:var(--err-soft)} .tag.warn{background:var(--warn-soft)}
+  .preview{background:var(--brand-soft);border-radius:12px 12px 12px 2px;padding:12px 14px;white-space:pre-wrap;margin-top:8px}
+  .bar{height:14px;background:var(--line);border-radius:99px;overflow:hidden;margin:14px 0 6px}
+  .bar > div{height:100%;width:0;background:var(--brand);transition:width .3s}
+  .stats{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.95rem}
+  .stats b{color:var(--ink)}
+  details summary{cursor:pointer;color:var(--muted);margin-top:12px}
+  .check{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:10px}
+  footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Envio de Mensagens no WhatsApp</h1>
+    <p>Siga os 4 passos abaixo. Nada é enviado até você clicar em <b>Começar envio</b>.</p>
+  </header>
+
+  <!-- PASSO 1 -->
+  <section class="card">
+    <div class="step"><span class="num" id="n1">1</span><h2>Conectar seu WhatsApp</h2></div>
+    <label for="token">Token de acesso</label>
+    <input type="password" id="token" placeholder="Cole aqui o token do seu canal" autocomplete="off">
+    <p class="hint">Encontre o token no painel do Whapi (panel.whapi.cloud), dentro do seu canal.</p>
+    <label class="check"><input type="checkbox" id="lembrar" checked> Lembrar o token neste computador</label>
+    <div class="row" style="margin-top:12px"><button id="btnTestar" class="secondary">Testar conexão</button></div>
+    <div id="statusConexao"></div>
+  </section>
+
+  <!-- PASSO 2 -->
+  <section class="card">
+    <div class="step"><span class="num" id="n2">2</span><h2>Adicionar contatos</h2></div>
+    <label for="arquivo">Importar planilha (Excel ou CSV)</label>
+    <input type="file" id="arquivo" accept=".xlsx,.xls,.csv">
+    <p class="hint">A planilha precisa ter uma coluna de <b>telefone</b> (ou "número"). A coluna <b>nome</b> é opcional.</p>
+    <label for="colar">…ou cole a lista aqui (um contato por linha: número, nome)</label>
+    <textarea id="colar" placeholder="11999998888, Maria&#10;(21) 97777-6666, João&#10;11955554444"></textarea>
+    <div class="row" style="margin-top:10px"><button id="btnCarregar" class="secondary">Carregar lista colada</button></div>
+    <div id="resumoContatos"></div>
+    <div class="tablebox hidden" id="boxContatos"><table><thead><tr><th>Número</th><th>Nome</th><th>Situação</th></tr></thead><tbody id="tbContatos"></tbody></table></div>
+  </section>
+
+  <!-- PASSO 3 -->
+  <section class="card">
+    <div class="step"><span class="num" id="n3">3</span><h2>Escrever a mensagem</h2></div>
+    <label for="mensagem">Mensagem</label>
+    <textarea id="mensagem" placeholder="Olá, {nome}! Tudo bem?&#10;&#10;Responda SAIR se não quiser mais receber mensagens."></textarea>
+    <div class="row" style="margin-top:8px"><button id="btnNome" class="secondary" type="button">Inserir nome do contato</button></div>
+    <p class="hint">Onde estiver <b>{nome}</b>, cada pessoa verá o próprio nome. Mensagens personalizadas reduzem o risco de bloqueio.</p>
+    <label>Prévia</label>
+    <div class="preview" id="previa">Escreva a mensagem acima para ver a prévia.</div>
+  </section>
+
+  <!-- PASSO 4 -->
+  <section class="card">
+    <div class="step"><span class="num" id="n4">4</span><h2>Enviar</h2></div>
+    <div class="msg warn">Envie apenas para pessoas que conhecem você ou pediram para receber. Muitas denúncias de spam fazem o WhatsApp bloquear o número.</div>
+    <details>
+      <summary>Configurações avançadas</summary>
+      <div class="row">
+        <div><label for="intMin">Espera mínima (segundos)</label><input type="number" id="intMin" value="20" min="5"></div>
+        <div><label for="intMax">Espera máxima (segundos)</label><input type="number" id="intMax" value="60" min="5"></div>
+        <div><label for="limite">Máximo por envio</label><input type="number" id="limite" value="50" min="1"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="pularEnviados" checked> Não reenviar para quem já recebeu desta página</label>
+      <div class="row" style="margin-top:10px"><button id="btnLimparHist" class="secondary" type="button">Apagar histórico de enviados</button></div>
+    </details>
+
+    <div class="row" style="margin-top:16px">
+      <button id="btnTesteUm" class="secondary">Enviar teste para mim</button>
+    </div>
+    <button id="btnEnviar" class="big" style="margin-top:12px">Começar envio</button>
+    <div class="row hidden" id="controles" style="margin-top:10px">
+      <button id="btnPausar" class="secondary">Pausar</button>
+      <button id="btnParar" class="danger">Parar</button>
+    </div>
+
+    <div id="painelProgresso" class="hidden">
+      <div class="bar"><div id="barra"></div></div>
+      <div class="stats">
+        <span>Enviadas: <b id="sEnv">0</b></span>
+        <span>Erros: <b id="sErr">0</b></span>
+        <span>Restantes: <b id="sRest">0</b></span>
+        <span id="sProx"></span>
+      </div>
+      <div class="tablebox"><table><thead><tr><th>Hora</th><th>Número</th><th>Resultado</th></tr></thead><tbody id="tbLog"></tbody></table></div>
+      <div class="row" style="margin-top:12px"><button id="btnBaixar" class="secondary">Baixar relatório (planilha)</button></div>
+    </div>
+  </section>
+
+  <footer>O token e a lista ficam só neste navegador e são enviados apenas ao Whapi.</footer>
+</div>
+
+<script>
+const API = "https://gate.whapi.cloud";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v===null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} },
+  del(k){ try{ localStorage.removeItem(k); }catch{} }
+};
+
+let contatos = [];           // {numero, nome, valido}
+let log = [];                // {hora, numero, nome, status, detalhe}
+let rodando = false, pausado = false, parar = false;
+
+/* ---------- utilidades ---------- */
+function normalizar(n){
+  let d = String(n ?? "").replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = "55" + d;
+  return (d.length >= 12 && d.length <= 13) ? d : null;
+}
+function formatar(d){
+  if (!d) return "";
+  const m = d.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : "+" + d;
+}
+function aviso(el, tipo, texto){ $(el).innerHTML = `<div class="msg ${tipo}">${texto}</div>`; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function token(){ return $("token").value.trim(); }
+function personalizar(msg, nome){ return msg.replaceAll("{nome}", nome || "").replace(/ ,/g, ",").replace(/ {2,}/g, " "); }
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+
+async function chamar(caminho, metodo="GET", corpo){
+  let resp;
+  try{
+    resp = await fetch(API + caminho, {
+      method: metodo,
+      headers: { "Authorization": "Bearer " + token(), "Content-Type": "application/json", "Accept": "application/json" },
+      body: corpo ? JSON.stringify(corpo) : undefined
+    });
+  }catch(e){
+    throw new Error("Não foi possível falar com o Whapi. Verifique sua internet.");
+  }
+  let dados = null; try{ dados = await resp.json(); }catch{}
+  if (resp.status === 401 || resp.status === 403) throw new Error("Token inválido. Confira se copiou o token inteiro.");
+  if (!resp.ok) throw new Error((dados && (dados.error?.message || dados.message)) || ("Erro " + resp.status));
+  return dados;
+}
+
+/* ---------- passo 1 ---------- */
+$("token").value = store.get("whapi_token", "");
+$("token").addEventListener("input", salvarToken);
+$("lembrar").addEventListener("change", salvarToken);
+function salvarToken(){ $("lembrar").checked ? store.set("whapi_token", token()) : store.del("whapi_token"); atualizarPassos(); }
+
+$("btnTestar").onclick = async () => {
+  if (!token()) return aviso("statusConexao", "bad", "Cole o token primeiro.");
+  $("btnTestar").disabled = true; aviso("statusConexao", "warn", "Testando…");
+  try{
+    const r = await chamar("/health");
+    const st = (r?.status?.text || r?.status || "").toString().toUpperCase();
+    if (st && !["AUTH","CONNECTED","OK"].some(s => st.includes(s)))
+      aviso("statusConexao", "warn", `O token funciona, mas o WhatsApp parece desconectado (status: ${esc(st)}). Abra o painel do Whapi e escaneie o QR code novamente.`);
+    else aviso("statusConexao", "ok", "Conectado! Seu WhatsApp está pronto para enviar.");
+  }catch(e){ aviso("statusConexao", "bad", esc(e.message)); }
+  $("btnTestar").disabled = false;
+};
+
+/* ---------- passo 2 ---------- */
+function definirContatos(linhas){
+  const vistos = new Set();
+  contatos = linhas.map(({numero, nome}) => {
+    const n = normalizar(numero);
+    let situacao = n ? "ok" : "invalido";
+    if (n && vistos.has(n)) situacao = "repetido";
+    if (n) vistos.add(n);
+    return { original: String(numero ?? ""), numero: n, nome: String(nome ?? "").trim(), situacao };
+  }).filter(c => c.original.trim() !== "");
+  desenharContatos();
+}
+function desenharContatos(){
+  const ok = contatos.filter(c => c.situacao === "ok").length;
+  const inv = contatos.filter(c => c.situacao === "invalido").length;
+  const rep = contatos.filter(c => c.situacao === "repetido").length;
+  if (!contatos.length){ aviso("resumoContatos", "bad", "Nenhum contato encontrado."); $("boxContatos").classList.add("hidden"); atualizarPassos(); return; }
+  let t = `<b>${ok}</b> contato(s) prontos para receber.`;
+  if (inv) t += ` ${inv} número(s) inválido(s) serão ignorados.`;
+  if (rep) t += ` ${rep} repetido(s) serão ignorados.`;
+  aviso("resumoContatos", ok ? "ok" : "bad", t);
+  $("tbContatos").innerHTML = contatos.map(c => {
+    const tag = c.situacao === "ok" ? '<span class="tag ok">OK</span>' : c.situacao === "repetido" ? '<span class="tag warn">Repetido</span>' : '<span class="tag bad">Inválido</span>';
+    return `<tr><td>${esc(c.numero ? formatar(c.numero) : c.original)}</td><td>${esc(c.nome)}</td><td>${tag}</td></tr>`;
+  }).join("");
+  $("boxContatos").classList.remove("hidden");
+  atualizarPrevia(); atualizarPassos();
+}
+
+$("btnCarregar").onclick = () => {
+  const linhas = $("colar").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const partes = l.split(/[;,\t]/);
+    // aceita "numero, nome" ou "nome, numero"
+    const [a, ...resto] = partes;
+    const b = resto.join(" ").trim();
+    return /\d{8,}/.test(a.replace(/\D/g,"")) ? { numero: a, nome: b } : { numero: b, nome: a };
+  });
+  definirContatos(linhas);
+};
+
+$("arquivo").onchange = async (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  try{
+    if (typeof XLSX === "undefined") throw new Error("Leitor de planilhas não carregou. Verifique a internet e recarregue a página.");
+    const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+    const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+    if (!linhas.length) throw new Error("A planilha está vazia.");
+    const cols = Object.keys(linhas[0]);
+    const sem = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const colNum = cols.find(c => /(telefone|numero|celular|whats|fone|phone)/.test(sem(c)));
+    const colNome = cols.find(c => /(nome|name|cliente|contato)/.test(sem(c)));
+    if (!colNum) throw new Error(`Não achei a coluna de telefone. Colunas encontradas: ${cols.join(", ")}. Renomeie a coluna para "telefone".`);
+    definirContatos(linhas.map(l => ({ numero: l[colNum], nome: colNome ? l[colNome] : "" })));
+  }catch(e){ aviso("resumoContatos", "bad", esc(e.message)); }
+  ev.target.value = "";
+};
+
+/* ---------- passo 3 ---------- */
+$("mensagem").value = store.get("whapi_msg", "");
+$("mensagem").addEventListener("input", () => { store.set("whapi_msg", $("mensagem").value); atualizarPrevia(); atualizarPassos(); });
+$("btnNome").onclick = () => {
+  const t = $("mensagem"), i = t.selectionStart ?? t.value.length;
+  t.value = t.value.slice(0, i) + "{nome}" + t.value.slice(t.selectionEnd ?? i);
+  t.focus(); t.selectionStart = t.selectionEnd = i + 6; t.dispatchEvent(new Event("input"));
+};
+function atualizarPrevia(){
+  const m = $("mensagem").value;
+  const ex = contatos.find(c => c.situacao === "ok");
+  $("previa").textContent = m ? personalizar(m, ex?.nome || "Maria") : "Escreva a mensagem acima para ver a prévia.";
+}
+
+/* ---------- passo 4 ---------- */
+let historico = new Set(store.get("whapi_enviados", []));
+$("btnLimparHist").onclick = () => {
+  if (!confirm("Apagar o histórico? Depois disso, a página poderá enviar de novo para quem já recebeu.")) return;
+  historico = new Set(); store.del("whapi_enviados"); alert("Histórico apagado.");
+};
+
+function validar(){
+  if (!token()) return "Preencha o token no passo 1.";
+  if (!contatos.some(c => c.situacao === "ok")) return "Adicione pelo menos um contato válido no passo 2.";
+  if (!$("mensagem").value.trim()) return "Escreva a mensagem no passo 3.";
+  return null;
+}
+
+$("btnTesteUm").onclick = async () => {
+  if (!token()) return alert("Preencha o token no passo 1.");
+  if (!$("mensagem").value.trim()) return alert("Escreva a mensagem no passo 3.");
+  const n = normalizar(prompt("Digite o SEU número (com DDD) para receber o teste:") || "");
+  if (!n) return alert("Número inválido.");
+  try{
+    await chamar("/messages/text", "POST", { to: n, body: personalizar($("mensagem").value, "Teste") });
+    alert("Mensagem de teste enviada! Confira seu WhatsApp.");
+  }catch(e){ alert("Não foi possível enviar: " + e.message); }
+};
+
+$("btnEnviar").onclick = async () => {
+  const erro = validar(); if (erro) return alert(erro);
+  const pular = $("pularEnviados").checked;
+  const limite = Math.max(1, +$("limite").value || 50);
+  let fila = contatos.filter(c => c.situacao === "ok" && !(pular && historico.has(c.numero)));
+  const jaRecebidos = contatos.filter(c => c.situacao === "ok").length - fila.length;
+  if (!fila.length) return alert("Todos os contatos da lista já receberam esta mensagem por esta página.");
+  fila = fila.slice(0, limite);
+
+  let tMin = Math.max(5, +$("intMin").value || 20), tMax = Math.max(tMin, +$("intMax").value || 60);
+  const minutos = Math.round(fila.length * (tMin + tMax) / 2 / 60);
+  let txt = `Enviar para ${fila.length} contato(s)?\n\nTempo estimado: cerca de ${minutos || 1} minuto(s). Deixe esta página aberta até terminar.`;
+  if (jaRecebidos) txt += `\n\n${jaRecebidos} contato(s) serão pulados porque já receberam.`;
+  if (!confirm(txt)) return;
+
+  rodando = true; pausado = false; parar = false;
+  $("btnEnviar").disabled = true; $("btnTesteUm").disabled = true;
+  $("controles").classList.remove("hidden"); $("painelProgresso").classList.remove("hidden");
+  $("btnPausar").textContent = "Pausar";
+  let env = 0, err = 0;
+  const atual = () => {
+    $("sEnv").textContent = env; $("sErr").textContent = err; $("sRest").textContent = fila.length - env - err;
+    $("barra").style.width = ((env + err) / fila.length * 100) + "%";
+  };
+  atual();
+
+  for (let i = 0; i < fila.length && !parar; i++){
+    while (pausado && !parar) { $("sProx").textContent = "Pausado"; await dormir(500); }
+    if (parar) break;
+    const c = fila[i];
+    $("sProx").textContent = `Enviando para ${formatar(c.numero)}…`;
+    let status = "Enviada", detalhe = "";
+    try{
+      await chamar("/messages/text", "POST", { to: c.numero, body: personalizar($("mensagem").value, c.nome) });
+      env++; historico.add(c.numero); store.set("whapi_enviados", [...historico]);
+    }catch(e){
+      err++; status = "Erro"; detalhe = e.message;
+      if (/token inválido/i.test(e.message)) parar = true;
+    }
+    registrar(c, status, detalhe); atual();
+
+    if (i < fila.length - 1 && !parar){
+      const espera = Math.round(tMin + Math.random() * (tMax - tMin));
+      for (let s = espera; s > 0 && !parar; s--){
+        if (pausado){ $("sProx").textContent = "Pausado"; s++; await dormir(500); continue; }
+        $("sProx").textContent = `Próxima em ${s}s`; await dormir(1000);
+      }
+    }
+  }
+
+  rodando = false;
+  $("sProx").textContent = parar ? "Envio interrompido." : "Envio concluído!";
+  $("btnEnviar").disabled = false; $("btnTesteUm").disabled = false;
+  $("controles").classList.add("hidden");
+  const restantes = contatos.filter(c => c.situacao === "ok" && !historico.has(c.numero)).length;
+  if (!parar && restantes) $("sProx").textContent += ` Ainda há ${restantes} contato(s) na lista. Clique em "Começar envio" mais tarde para continuar.`;
+};
+
+function registrar(c, status, detalhe){
+  const hora = new Date().toLocaleTimeString("pt-BR");
+  log.push({ data: new Date().toLocaleString("pt-BR"), numero: c.numero, nome: c.nome, status, detalhe });
+  const tag = status === "Enviada" ? '<span class="tag ok">Enviada</span>' : `<span class="tag bad" title="${esc(detalhe)}">Erro</span> <small>${esc(detalhe)}</small>`;
+  $("tbLog").insertAdjacentHTML("afterbegin", `<tr><td>${hora}</td><td>${esc(formatar(c.numero))} ${c.nome ? "· " + esc(c.nome) : ""}</td><td>${tag}</td></tr>`);
+}
+
+$("btnPausar").onclick = () => { pausado = !pausado; $("btnPausar").textContent = pausado ? "Continuar" : "Pausar"; };
+$("btnParar").onclick = () => { if (confirm("Parar o envio? Quem já recebeu não receberá de novo.")) parar = true; };
+window.addEventListener("beforeunload", e => { if (rodando){ e.preventDefault(); e.returnValue = ""; } });
+
+$("btnBaixar").onclick = () => {
+  if (!log.length) return alert("Ainda não há envios para baixar.");
+  const ws = XLSX.utils.json_to_sheet(log.map(l => ({ "Data/hora": l.data, "Número": l.numero, "Nome": l.nome, "Resultado": l.status, "Detalhe": l.detalhe })));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+  XLSX.writeFile(wb, `relatorio-envio-${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+/* ---------- indicadores dos passos ---------- */
+function atualizarPassos(){
+  $("n1").classList.toggle("done", !!token());
+  $("n2").classList.toggle("done", contatos.some(c => c.situacao === "ok"));
+  $("n3").classList.toggle("done", !!$("mensagem").value.trim());
+}
+atualizarPrevia(); atualizarPassos();
+</script>
+</body>
+</html>
