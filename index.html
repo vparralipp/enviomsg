@@ -202,7 +202,11 @@ async function chamar(caminho, metodo="GET", corpo){
   }
   let dados = null; try{ dados = await resp.json(); }catch{}
   if (resp.status === 401 || resp.status === 403) throw new Error("Token inválido. Confira se copiou o token inteiro.");
-  if (!resp.ok) throw new Error((dados && (dados.error?.message || dados.message)) || ("Erro " + resp.status));
+  if (!resp.ok){
+    const m = (dados && (dados.error?.message || dados.message)) || ("Erro " + resp.status);
+    if (/trial|limit exceeded|quota/i.test(m)) throw new Error("LIMITE: O limite do plano gratuito do Whapi acabou. Para continuar, ative o plano pago no painel do Whapi (panel.whapi.cloud).");
+    throw new Error(m);
+  }
   return dados;
 }
 
@@ -405,6 +409,7 @@ $("btnEnviar").onclick = async () => {
     }catch(e){
       err++; status = "Erro"; detalhe = e.message;
       if (/token inválido/i.test(e.message)) parar = true;
+      if (/^LIMITE:/.test(e.message)){ parar = true; alert(e.message.replace(/^LIMITE: /, "")); }
     }
     registrar(c, status, detalhe); atual();
 
@@ -428,7 +433,7 @@ $("btnEnviar").onclick = async () => {
 function registrar(c, status, detalhe){
   const hora = new Date().toLocaleTimeString("pt-BR");
   log.push({ data: new Date().toLocaleString("pt-BR"), numero: c.numero, nome: c.nome, status, detalhe });
-  const tag = status === "Enviada" ? '<span class="tag ok">Enviada</span>' : `<span class="tag bad" title="${esc(detalhe)}">Erro</span> <small>${esc(detalhe)}</small>`;
+  const tag = status === "Enviada" ? '<span class="tag ok">Enviada</span>' : `<span class="tag bad" title="${esc(detalhe)}">Erro</span> <small>${esc(detalhe.replace(/^LIMITE: /, ""))}</small>`;
   $("tbLog").insertAdjacentHTML("afterbegin", `<tr><td>${hora}</td><td>${esc(formatar(c.numero))} ${c.nome ? "· " + esc(c.nome) : ""}</td><td>${tag}</td></tr>`);
 }
 
